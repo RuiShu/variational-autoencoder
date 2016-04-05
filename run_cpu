@@ -1,0 +1,1 @@
+~/torch/install/bin/th mnist_vae.lua --gpu 0
