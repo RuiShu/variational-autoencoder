@@ -1,6 +1,8 @@
 require 'utils/MnistManager'
 require 'models/Vae'
 require 'optim'
+require 'lfs'
+lfs.mkdir('save')
 local c = require 'trepl.colorize'
 
 cmd = lapp[[
