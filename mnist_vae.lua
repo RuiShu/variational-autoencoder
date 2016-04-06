@@ -1,5 +1,5 @@
-require 'utils/MnistManager'
-require 'models/Vae'
+require 'utils.MnistManager'
+require 'models.Vae'
 require 'optim'
 require 'lfs'
 lfs.mkdir('save')

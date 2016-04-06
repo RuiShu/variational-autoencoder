@@ -1,9 +1,7 @@
 local Vae = torch.class("Vae")
 local c = require 'trepl.colorize'
-require 'nn'
 require 'nngraph'
-require 'utils/Sampler'
-require 'criteria/KLDCriterion'
+require 'nnutils'
 
 function Vae:__init(struct)
    -- build model
@@ -23,22 +21,28 @@ function Vae:build(struct)
    local encoder = nn.Sequential()
    encoder:add(nn.Linear(struct.x, struct.h))
    encoder:add(nn.ReLU(true))
-   local mean_logvar = nn.ConcatTable()
-   mean_logvar:add(nn.Linear(struct.h, struct.z))
-   mean_logvar:add(nn.Linear(struct.h, struct.z))
-   encoder:add(mean_logvar)
+   encoder:add(nn.Linear(struct.h, struct.h))
+   encoder:add(nn.ReLU(true))
+   encoder:add(nn.Linear(struct.h, struct.h))
+   encoder:add(nn.ReLU(true))
+   encoder:add(nn.Linear(struct.h, struct.z*2))
+   encoder:add(nn.View(2, struct.z))
    -- construct self.decoder
    local decoder = nn.Sequential()
    decoder:add(nn.Linear(struct.z, struct.h))
+   decoder:add(nn.ReLU(true))
+   decoder:add(nn.Linear(struct.h, struct.h))
+   decoder:add(nn.ReLU(true))
+   decoder:add(nn.Linear(struct.h, struct.h))
    decoder:add(nn.ReLU(true))
    decoder:add(nn.Linear(struct.h, struct.x))
    decoder:add(nn.Sigmoid(true))
    -- combine the two
    local input = nn.Identity()()
-   local mu, logv = encoder(input):split(2)
-   local code = nn.Sampler()({mu, logv})
+   local mulv = encoder(input)
+   local code = nn.Sampler()(mulv)
    local recon = decoder(code)
-   local model = nn.gModule({input},{mu, logv, recon})
+   local model = nn.gModule({input},{mulv, recon})
    return encoder, decoder, model
 end
 
@@ -49,13 +53,14 @@ function Vae:feval(x, minibatch)
    end
    self.model:zeroGradParameters()
    -- forward
-   local mu, logv, recon = unpack(self.model:forward(input))
-   local kld_err = self.kld:forward(mu, logv)
+   local mulv, recon = unpack(self.model:forward(input))
+   local pmulv = mulv:clone():zero()
+   local kld_err = self.kld:forward(mulv, pmulv)
    local bce_err = self.bce:forward(recon, input)
    -- backward
-   local dmu, dlogv = unpack(self.kld:backward(mu, logv))
+   local dmulv = self.kld:backward(mulv, pmulv)
    local drecon = self.bce:backward(recon, input)
-   error_grads = {dmu, dlogv, drecon}
+   error_grads = {dmulv, drecon}
    self.model:backward(input, error_grads)
    -- record
    local nelbo = kld_err + bce_err

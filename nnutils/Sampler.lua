@@ -5,31 +5,53 @@ local Sampler, parent = torch.class('nn.Sampler', 'nn.Module')
 
 function Sampler:__init()
    parent.__init(self)
-   self.gradInput = {}
+   self.eps = torch.Tensor()
 end 
 
 function Sampler:updateOutput(input)
-   self.eps = self.eps or input[2].new()
-   self.eps:resizeAs(input[2]):copy(torch.randn(input[2]:size()))
-
-   self.ouput = self.output or input[2].new()
-   self.output:resizeAs(input[2]):copy(input[2])
-
-   self.output:mul(0.5):exp():cmul(self.eps)
-   self.output:add(input[1])
-
+   -- input: batchsize x 2*nMix x nDims
+   local eps = self.eps
+   local output = self.output
+   local len = input:dim()
+   local nMix, mu, lv
+   if len == 3 then
+      nMix = input:size(2)/2
+      mu = input[{{},{1,nMix},{}}]
+      lv = input[{{},{nMix+1,2*nMix},{}}]
+   elseif len == 2 then
+      nMix = input:size(1)/2
+      mu = input[{{1,nMix},{}}]
+      lv = input[{{nMix+1,2*nMix},{}}]
+   end
+   if nMix == 1 then
+      eps:resizeAs(lv):copy(torch.randn(lv:size()))
+      output:resizeAs(lv):copy(lv)
+      output:div(2):exp():cmul(eps):add(mu)
+   end
+   self.len = len
+   self.nMix = nMix
+   self.mu = mu
+   self.lv = lv
+   self.output = output:squeeze(len-1)
    return self.output
 end
 
 function Sampler:updateGradInput(input, gradOutput)
-   self.gradInput[1] = self.gradInput[1] or input[1].new()
-   self.gradInput[1]:resizeAs(gradOutput):copy(gradOutput)
-   
-   self.gradInput[2] = self.gradInput[2] or input[2].new()
-   self.gradInput[2]:resizeAs(gradOutput):copy(input[2])
-   
-   self.gradInput[2]:mul(0.5):exp():mul(0.5):cmul(self.eps)
-   self.gradInput[2]:cmul(gradOutput)
-
+   local gradInput = self.gradInput
+   local eps = self.eps
+   local len = self.len
+   local nMix = self.nMix
+   local mu = self.mu
+   local lv = self.lv
+   gradInput:resizeAs(input)
+   if len == 3 then
+      dMu = gradInput[{{},{1,nMix},{}}]
+      dLv = gradInput[{{},{nMix+1,2*nMix},{}}]
+   elseif len == 2 then
+      dMu = gradInput[{{1,nMix},{}}]
+      dLv = gradInput[{{nMix+1,2*nMix},{}}]
+   end
+   dMu:copy(gradOutput)
+   dLv:copy(lv):div(2):exp():cmul(eps):cmul(gradOutput)
    return self.gradInput
 end
