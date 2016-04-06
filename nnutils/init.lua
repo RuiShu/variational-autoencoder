@@ -1,0 +1,6 @@
+require 'nn'
+require 'nnutils.KLDCriterion'
+require 'nnutils.GaussianCriterion'
+require 'nnutils.Sampler'
+require 'nnutils.SimpleSampler'
+require 'nnutils.SimpleKLDCriterion'
