@@ -20,11 +20,10 @@ function Vae:build(struct)
    encoder:add(nn.SpatialConvolution( 50,100, 2,2, 2,2)):add(nn.ReLU(true))
    encoder:add(nn.SpatialConvolution(100,200, 3,3, 2,2)):add(nn.ReLU(true))
    encoder:add(nn.SpatialConvolution(200,400, 3,3, 2,2)):add(nn.ReLU(true))
-   encoder:add(nn.View(400))
    -- linear
+   encoder:add(nn.View(400))
    encoder:add(nn.Linear(400,2*struct.z))
    encoder:add(nn.View(2,struct.z))
-
    local decoder = nn.Sequential()
    -- linear
    decoder:add(nn.Linear(struct.z, struct.h)):add(nn.ReLU(true))
