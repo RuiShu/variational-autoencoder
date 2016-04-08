@@ -79,6 +79,7 @@ end
 function KLDCriterion:_viewInput(p, q)
    self.len = q:dim()
    if self.len == 3 then
+      assert(p:size(1) == q:size(1), "Mismatching sample size")
       assert(p:size(2) == 2, "Incorrect dimension")
       self.nMix = q:size(2)/2
       self.qMu = q[{{},{1,self.nMix},{}}]
