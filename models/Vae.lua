@@ -1,7 +1,7 @@
 local Vae = torch.class("Vae")
 local c = require 'trepl.colorize'
 require 'nngraph'
-require 'nnutils'
+require 'nnutils.init'
 
 function Vae:__init(struct)
    -- build model
@@ -10,31 +10,17 @@ function Vae:__init(struct)
    self.bce = nn.BCECriterion()
    self.bce.sizeAverage = false
    self.parameters, self.gradients = self.model:getParameters()
-   -- record
-   self.bce_status = 0
-   self.kld_status = 0
-   self.elbo_status = 0
 end
 
 function Vae:build(struct)
    -- construct self.encoder
    local encoder = nn.Sequential()
-   encoder:add(nn.Linear(struct.x, struct.h))
-   encoder:add(nn.ReLU(true))
-   encoder:add(nn.Linear(struct.h, struct.h))
-   encoder:add(nn.ReLU(true))
-   encoder:add(nn.Linear(struct.h, struct.h))
-   encoder:add(nn.ReLU(true))
-   encoder:add(nn.Linear(struct.h, struct.z*2))
+   encoder:add(nn.Linear(struct.x, struct.h)):add(nn.ReLU(true))
+   encoder:add(nn.Linear(struct.h, 2*struct.z))
    encoder:add(nn.View(2, struct.z))
    -- construct self.decoder
    local decoder = nn.Sequential()
-   decoder:add(nn.Linear(struct.z, struct.h))
-   decoder:add(nn.ReLU(true))
-   decoder:add(nn.Linear(struct.h, struct.h))
-   decoder:add(nn.ReLU(true))
-   decoder:add(nn.Linear(struct.h, struct.h))
-   decoder:add(nn.ReLU(true))
+   decoder:add(nn.Linear(struct.z, struct.h)):add(nn.ReLU(true))
    decoder:add(nn.Linear(struct.h, struct.x))
    decoder:add(nn.Sigmoid(true))
    -- combine the two
@@ -69,6 +55,10 @@ function Vae:feval(x, minibatch)
 end
 
 function Vae:record(bce_err, kld_err, nelbo)
+   -- record
+   self.bce_status = self.bce_status or bce_err
+   self.kld_status = self.kld_status or kld_err
+   self.elbo_status = self.elbo_status or -nelbo
    self.kld_status = 0.99*self.kld_status + 0.01*kld_err
    self.bce_status = 0.99*self.bce_status + 0.01*bce_err
    self.elbo_status = 0.99*self.elbo_status - 0.01*nelbo

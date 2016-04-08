@@ -1,38 +1,47 @@
-local Vae = torch.class("SimpleVae")
+local Vae = torch.class("CnnVae")
 local c = require 'trepl.colorize'
 require 'nngraph'
-require 'nnutils'
+require 'nnutils.init'
 
 function Vae:__init(struct)
    -- build model
    self.encoder, self.decoder, self.model = self:build(struct)
-   self.kld = nn.SimpleKLDCriterion()
+   self.kld = nn.KLDCriterion()
    self.bce = nn.BCECriterion()
    self.bce.sizeAverage = false
    self.parameters, self.gradients = self.model:getParameters()
 end
 
 function Vae:build(struct)
-   -- construct self.encoder
    local encoder = nn.Sequential()
-   encoder:add(nn.Linear(struct.x, struct.h))
-   encoder:add(nn.ReLU(true))
-   local mean_logvar = nn.ConcatTable()
-   mean_logvar:add(nn.Linear(struct.h, struct.z))
-   mean_logvar:add(nn.Linear(struct.h, struct.z))
-   encoder:add(mean_logvar)
-   -- construct self.decoder
+   -- conv
+   encoder:add(nn.View(1,28,28))
+   encoder:add(nn.SpatialConvolution(  1, 50, 2,2, 2,2)):add(nn.ReLU(true))
+   encoder:add(nn.SpatialConvolution( 50,100, 2,2, 2,2)):add(nn.ReLU(true))
+   encoder:add(nn.SpatialConvolution(100,200, 3,3, 2,2)):add(nn.ReLU(true))
+   encoder:add(nn.SpatialConvolution(200,400, 3,3, 2,2)):add(nn.ReLU(true))
+   encoder:add(nn.View(400))
+   -- linear
+   encoder:add(nn.Linear(400,2*struct.z))
+   encoder:add(nn.View(2,struct.z))
+
    local decoder = nn.Sequential()
-   decoder:add(nn.Linear(struct.z, struct.h))
-   decoder:add(nn.ReLU(true))
-   decoder:add(nn.Linear(struct.h, struct.x))
-   decoder:add(nn.Sigmoid(true))
+   -- linear
+   decoder:add(nn.Linear(struct.z, struct.h)):add(nn.ReLU(true))
+   decoder:add(nn.View(400,1,1))
+   -- conv
+   decoder:add(nn.SpatialFullConvolution(400,200, 3,3, 2,2)):add(nn.ReLU(true))
+   decoder:add(nn.SpatialFullConvolution(200,100, 3,3, 2,2)):add(nn.ReLU(true))
+   decoder:add(nn.SpatialFullConvolution(100, 50, 2,2, 2,2)):add(nn.ReLU(true))
+   decoder:add(nn.SpatialFullConvolution( 50,  1, 2,2, 2,2))
+   decoder:add(nn.View(784))
+   decoder:add(nn.Sigmoid())
    -- combine the two
    local input = nn.Identity()()
-   local mu, logv = encoder(input):split(2)
-   local code = nn.SimpleSampler()({mu, logv})
+   local mulv = encoder(input)
+   local code = nn.Sampler()(mulv)
    local recon = decoder(code)
-   local model = nn.gModule({input},{mu, logv, recon})
+   local model = nn.gModule({input},{mulv, recon})
    return encoder, decoder, model
 end
 
@@ -43,13 +52,14 @@ function Vae:feval(x, minibatch)
    end
    self.model:zeroGradParameters()
    -- forward
-   local mu, logv, recon = unpack(self.model:forward(input))
-   local kld_err = self.kld:forward(mu, logv)
+   local mulv, recon = unpack(self.model:forward(input))
+   local pmulv = mulv:clone():zero()
+   local kld_err = self.kld:forward(mulv, pmulv)
    local bce_err = self.bce:forward(recon, input)
    -- backward
-   local dmu, dlogv = unpack(self.kld:backward(mu, logv))
+   local dmulv = self.kld:backward(mulv, pmulv)
    local drecon = self.bce:backward(recon, input)
-   error_grads = {dmu, dlogv, drecon}
+   error_grads = {dmulv, drecon}
    self.model:backward(input, error_grads)
    -- record
    local nelbo = kld_err + bce_err
@@ -81,6 +91,11 @@ function Vae:cuda()
    self.model:cuda()
    self.bce:cuda()
    self.kld:cuda()
+   require 'cudnn'
+   -- cudnn.benchmark = true
+   cudnn.fastest = true
+   cudnn.convert(self.encoder, cudnn)
+   cudnn.convert(self.decoder, cudnn)
    self.parameters, self.gradients = self.model:getParameters()
    return self
 end
