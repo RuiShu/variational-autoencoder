@@ -16,7 +16,8 @@ function MnistManager:inEpoch()
    return self.current ~= #self.indices
 end
 
-function MnistManager:shuffle()
+function MnistManager:shuffle(batchsize)
+   self.batchsize = batchsize or self.batchsize
    self.indices = torch.randperm(self.train:size(1)):long():split(self.batchsize)
    self.indices[#self.indices] = nil
    self.current = 0
