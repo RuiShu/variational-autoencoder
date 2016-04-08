@@ -13,8 +13,8 @@ function KLDCriterion:__init()
    self.expElem = torch.Tensor()
    self.expSum = torch.Tensor()
    self.preOut = torch.Tensor()
-   self.dpMu = torch.Tensor()
-   self.dpLv = torch.Tensor()
+   self.dpMuBuf = torch.Tensor()
+   self.dpLvBuf = torch.Tensor()
 end 
 
 function KLDCriterion:updateOutput(p, q)
@@ -38,17 +38,14 @@ end
 function KLDCriterion:updateGradInput(p, q)
    self.expSum = self.expSum:expandAs(self.expElem)
    self.expElem:cdiv(self.expSum)
-   self.dpMu:copy(self.muDiff):cmul(self.qExp):neg():cmul(self.expElem)
-   self.dpLv:copy(self.expDiff):csub(1):div(2):cmul(self.expElem)
+   -- compute dp
+   self.dpMuBuf:copy(self.muDiff):cmul(self.qExp):neg():cmul(self.expElem)
+   self.dpLvBuf:copy(self.expDiff):csub(1):div(2):cmul(self.expElem)
+   self.dpMu:sum(self.dpMuBuf, self.len-1)
+   self.dpLv:sum(self.dpLvBuf, self.len-1)
+   -- compute dq
    self.dqMu:copy(self.muDiff):cmul(self.qExp):cmul(self.expElem)
    self.dqLv:copy(self.muDiff):pow(2):cmul(self.qExp):neg():csub(self.expDiff):add(1):div(2):cmul(self.expElem)
-   if self.len == 3 then
-      self.gradInput[1][{{},{1},{}}]:sum(self.dpMu, 2)
-      self.gradInput[1][{{},{2},{}}]:sum(self.dpLv, 2)
-   elseif self.len == 2 then
-      self.gradInput[1][{1,{}}]:sum(self.dpMu, 1)
-      self.gradInput[1][{2,{}}]:sum(self.dpLv, 1)
-   end
    return self.gradInput[1], self.gradInput[2]
 end
 
@@ -61,47 +58,18 @@ function KLDCriterion:_resizeBuffers(p, q)
    self.expElem:resizeAs(self.qLv)
    self.expSum:resizeAs(self.pLv)
    self.preOut:resizeAs(self.pLv)
-   -- cache for backward
-   self.dpMu:resizeAs(self.qLv)
-   self.dpLv:resizeAs(self.qLv)
-   -- grad storage
-   self.gradInput[1]:resizeAs(p)
-   self.gradInput[2]:resizeAs(q)
-   if self.len == 3 then
-      self.dqMu = self.gradInput[2][{{},{1,self.nMix},{}}]
-      self.dqLv = self.gradInput[2][{{},{self.nMix+1,2*self.nMix},{}}]
-   elseif self.len == 2 then
-      self.dqMu = self.gradInput[2][{{1,self.nMix},{}}]
-      self.dqLv = self.gradInput[2][{{self.nMix+1,2*self.nMix},{}}]
-   end
+   self.dpMuBuf:resizeAs(self.qLv)
+   self.dpLvBuf:resizeAs(self.qLv)
 end
 
 function KLDCriterion:_viewInput(p, q)
    self.len = q:dim()
-   if self.len == 3 then
-      assert(p:size(1) == q:size(1), "Mismatching sample size")
-      assert(p:size(2) == 2, "Incorrect dimension")
-      self.nMix = q:size(2)/2
-      self.qMu = q[{{},{1,self.nMix},{}}]
-      self.qLv = q[{{},{self.nMix+1,2*self.nMix},{}}]
-      if self.nMix > 1 then
-         self.pMu = p[{{},{1},{}}]
-         self.pLv = p[{{},{2},{}}]
-      else
-         self.pMu = p[{{},{1},{}}]
-         self.pLv = p[{{},{2},{}}]
-      end
-   elseif self.len == 2 then
-      assert(p:size(1) == 2, "Incorrect dimension")
-      self.nMix = q:size(1)/2
-      self.qMu = q[{{1,self.nMix},{}}]
-      self.qLv = q[{{self.nMix+1,2*self.nMix},{}}]
-      if self.nMix > 1 then
-         self.pMu = p[{{1},{}}]
-         self.pLv = p[{{2},{}}]
-      else
-         self.pMu = p[{{1},{}}]
-         self.pLv = p[{{2},{}}]
-      end
-   end
+   self.nMix = q:size(self.len-1)/2
+   self.pMu, self.pLv = unpack(p:split(1, self.len-1))
+   self.qMu, self.qLv = unpack(q:split(self.nMix, self.len-1))
+   -- grad view
+   self.gradInput[1]:resizeAs(p)
+   self.gradInput[2]:resizeAs(q)
+   self.dpMu, self.dpLv = unpack(self.gradInput[1]:split(1, self.len-1))
+   self.dqMu, self.dqLv = unpack(self.gradInput[2]:split(self.nMix, self.len-1))
 end   
