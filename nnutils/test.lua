@@ -64,7 +64,11 @@ end
 function ind_gmm_sampler_forward()
    sampler = nn.IndGmmSampler()
    input = torch.randn(5,10,3)
+   mu, lv = unpack(input:split(5,2))
+   lv:fill(-1000)
    output = sampler:forward(input)
+   print(mu)
+   print(output)
 end
 
 ind_gmm_sampler_forward()
