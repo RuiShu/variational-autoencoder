@@ -6,9 +6,9 @@ require 'image'
 
 function Logger:__init(cmd)
    self.cmd = cmd
-   if cmd.z_size == 2 then
-      self.nRow = 40
-      self.nCol = 40
+   if cmd.zSize == 2 and cmd.showVis then
+      self.nRow = 20
+      self.nCol = 20
       local dist = 2
       self.code = torch.Tensor(self.nRow*self.nCol,2)
       local x = torch.linspace(-dist,dist,self.nCol)
@@ -23,7 +23,8 @@ function Logger:__init(cmd)
       end
    end
    -- create logger
-   self.optLogger = optim.Logger('save/FooBar/FooBar.log')
+   self.optLogger = optim.Logger('save/'..cmd.model..'/'..cmd.model..'.log')
+   self.optLogger.showPlot = false
    self.optLogger:setNames{'nelbo', 'kld', 'bce'}
    self.win = nil
    self.recordCount = 0
@@ -39,7 +40,7 @@ function Logger:receiveRecord(comm)
    self.bceStatus = 0.99*self.bceStatus + 0.01*comm.bceErr
    self.nElboStatus = 0.99*self.nElboStatus + 0.01*comm.nElbo
    self.optLogger:add{comm.nElbo/200, comm.kldErr/200, comm.bceErr/200}
-   if self.recordCount % 50 == 0 and self.cmd.z_size == 2 then
+   if self.recordCount % 50 == 0 and self.cmd.zSize == 2 and self.cmd.showVis then
       self:visualize(comm.decoder)
    end
 end
@@ -63,7 +64,7 @@ function Logger:log()
 end
 
 function Logger:cuda()
-   if self.cmd.z_size == 2 then
+   if self.cmd.zSize == 2 and self.cmd.showVis then
       self.code = self.code:cuda()
    end
 end

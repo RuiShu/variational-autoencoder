@@ -1,4 +1,5 @@
-local GmmVae = torch.class("GmmVae")
+require 'models.Vae'
+local GmmVae, parent = torch.class('GmmVae', 'Vae')
 local c = require 'trepl.colorize'
 require 'nngraph'
 require 'nnutils.init'
@@ -65,29 +66,4 @@ function GmmVae:feval(x, minibatch)
    local nelbo = kld_err + bce_err
    self:record(kld_err, bce_err, nelbo)
    return nelbo, self.gradients
-end
-
-function GmmVae:record(bceErr, kldErr, nElbo)
-   -- record
-   self.bceErr = bceErr
-   self.kldErr = kldErr
-   self.nElbo = nElbo
-end
-
-function GmmVae:sendRecord()
-   local comm = {}
-   comm.bceErr = self.bceErr
-   comm.kldErr = self.kldErr
-   comm.nElbo = self.nElbo
-   comm.decoder = self.decoder
-   return comm
-end
-
-function GmmVae:cuda()
-   require 'cunn'
-   self.model:cuda()
-   self.bce:cuda()
-   self.kld:cuda()
-   self.parameters, self.gradients = self.model:getParameters()
-   return self
 end

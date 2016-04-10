@@ -1,1 +1,1 @@
-~/torch/install/bin/th mnist_vae.lua --gpu 0
+~/torch/install/bin/th mnist.lua --gpu 0 --showVis false

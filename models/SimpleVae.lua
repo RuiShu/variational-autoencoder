@@ -1,9 +1,10 @@
-local Vae = torch.class("SimpleVae")
+require 'models.Vae'
+local SimpleVae, parent = torch.class('SimpleVae', 'Vae')
 local c = require 'trepl.colorize'
 require 'nngraph'
-require 'nnutils'
+require 'nnutils.init'
 
-function Vae:__init(struct)
+function SimpleVae:__init(struct)
    -- build model
    self.encoder, self.decoder, self.model = self:build(struct)
    self.kld = nn.SimpleKLDCriterion()
@@ -12,7 +13,7 @@ function Vae:__init(struct)
    self.parameters, self.gradients = self.model:getParameters()
 end
 
-function Vae:build(struct)
+function SimpleVae:build(struct)
    -- construct self.encoder
    local encoder = nn.Sequential()
    encoder:add(nn.Linear(struct.x, struct.h))
@@ -36,7 +37,7 @@ function Vae:build(struct)
    return encoder, decoder, model
 end
 
-function Vae:feval(x, minibatch)
+function SimpleVae:feval(x, minibatch)
    local input = minibatch[1]
    if self.parameters ~= x then
       self.parameters:copy(x)
@@ -57,30 +58,3 @@ function Vae:feval(x, minibatch)
    return nelbo, self.gradients
 end
 
-function Vae:record(bce_err, kld_err, nelbo)
-   -- record
-   self.bce_status = self.bce_status or bce_err
-   self.kld_status = self.kld_status or kld_err
-   self.elbo_status = self.elbo_status or -nelbo
-   self.kld_status = 0.99*self.kld_status + 0.01*kld_err
-   self.bce_status = 0.99*self.bce_status + 0.01*bce_err
-   self.elbo_status = 0.99*self.elbo_status - 0.01*nelbo
-end
-
-function Vae:log()
-   self.epoch = self.epoch or 0
-   self.epoch = self.epoch + 1
-   print(c.green 'Epoch: '..self.epoch)
-   print(c.red '==> '..'Elbo: '..self.elbo_status/200)
-   print(c.red '==> '..'KLD: '..self.kld_status/200)
-   print(c.red '==> '..'BCE: '..self.bce_status/200)
-end
-
-function Vae:cuda()
-   require 'cunn'
-   self.model:cuda()
-   self.bce:cuda()
-   self.kld:cuda()
-   self.parameters, self.gradients = self.model:getParameters()
-   return self
-end

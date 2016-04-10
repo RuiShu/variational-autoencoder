@@ -1,1 +1,1 @@
-~/torch/install/bin/th mnist_vae.lua
+~/torch/install/bin/th mnist.lua --showVis false

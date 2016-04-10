@@ -1,4 +1,5 @@
-local CnnVae = torch.class("CnnVae")
+require 'models.Vae'
+local CnnVae, parent = torch.class('CnnVae', 'Vae')
 local c = require 'trepl.colorize'
 require 'nngraph'
 require 'nnutils.init'
@@ -66,32 +67,12 @@ function CnnVae:feval(x, minibatch)
    return nelbo, self.gradients
 end
 
-function CnnVae:record(bceErr, kldErr, nElbo)
-   -- record
-   self.bceErr = bceErr
-   self.kldErr = kldErr
-   self.nElbo = nElbo
-end
-
-function CnnVae:sendRecord()
-   local comm = {}
-   comm.bceErr = self.bceErr
-   comm.kldErr = self.kldErr
-   comm.nElbo = self.nElbo
-   comm.decoder = self.decoder
-   return comm
-end
-
 function CnnVae:cuda()
-   require 'cunn'
-   self.model:cuda()
-   self.bce:cuda()
-   self.kld:cuda()
+   parent.cuda(self)
    require 'cudnn'
-   -- cudnn.benchmark = true
+   cudnn.benchmark = true
    cudnn.fastest = true
    cudnn.convert(self.encoder, cudnn)
    cudnn.convert(self.decoder, cudnn)
-   self.parameters, self.gradients = self.model:getParameters()
    return self
 end
