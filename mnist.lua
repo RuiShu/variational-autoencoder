@@ -1,9 +1,8 @@
-require 'lfs'
 require 'pl'
 require 'optim'
 require 'utils.MnistManager'
 require 'utils.Logger'
-lfs.mkdir('save')
+path.mkdir('save')
 local c = require 'trepl.colorize'
 
 local cmd = lapp[[
