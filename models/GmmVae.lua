@@ -63,31 +63,24 @@ function GmmVae:feval(x, minibatch)
    self.model:backward(input, error_grads)
    -- record
    local nelbo = kld_err + bce_err
-   self:record(kld_err, bce_err, nelbo, pmulv, dpmulv)
+   self:record(kld_err, bce_err, nelbo)
    return nelbo, self.gradients
 end
 
-function GmmVae:record(bce_err, kld_err, nelbo, pmulv, dpmulv)
+function GmmVae:record(bceErr, kldErr, nElbo)
    -- record
-   self.bce_status = self.bce_status or bce_err
-   self.kld_status = self.kld_status or kld_err
-   self.elbo_status = self.elbo_status or -nelbo
-   self.pmulv = self.pmulv or pmulv
-   self.dpmulv = self.dpmulv or dpmulv
-   self.kld_status = 0.99*self.kld_status + 0.01*kld_err
-   self.bce_status = 0.99*self.bce_status + 0.01*bce_err
-   self.elbo_status = 0.99*self.elbo_status - 0.01*nelbo
-   self.pmulv = 0.99*self.pmulv + 0.01*pmulv
-   self.dpmulv = 0.99*self.dpmulv + 0.01*dpmulv
+   self.bceErr = bceErr
+   self.kldErr = kldErr
+   self.nElbo = nElbo
 end
 
-function GmmVae:log()
-   self.epoch = self.epoch or 0
-   self.epoch = self.epoch + 1
-   print(c.green 'Epoch: '..self.epoch)
-   print(c.red '==> '..'Elbo: '..self.elbo_status/200)
-   print(c.red '==> '..'KLD: '..self.kld_status/200)
-   print(c.red '==> '..'BCE: '..self.bce_status/200)
+function GmmVae:sendRecord()
+   local comm = {}
+   comm.bceErr = self.bceErr
+   comm.kldErr = self.kldErr
+   comm.nElbo = self.nElbo
+   comm.decoder = self.decoder
+   return comm
 end
 
 function GmmVae:cuda()

@@ -1,5 +1,7 @@
 require 'utils.MnistManager'
+require 'utils.Logger'
 require 'models.CnnVae'
+require 'pl'
 require 'optim'
 require 'lfs'
 lfs.mkdir('save')
@@ -19,11 +21,12 @@ cmd = lapp[[
 
 local data = MnistManager(200)
 local vae = CnnVae({x=784, h=cmd.h_size, z=cmd.z_size, m=cmd.m_size})
-
+local logger = Logger(cmd)
 if cmd.gpu == 1 then
    require 'cunn'
    data:cuda()
    vae:cuda()
+   logger:cuda()
 end
 
 local config = {learningRate = cmd.learning_rate}
@@ -37,8 +40,9 @@ while epoch < cmd.max_epoch do
       local minibatch = data:next()
       local feval = function(x) return vae:feval(x, minibatch) end
       optim.adam(feval, vae.parameters, config, state)
+      logger:receiveRecord(vae:sendRecord())
    end
-   vae:log()
+   logger:log()
    if epoch % cmd.epoch_step == 0 then
       config.learningRate = config.learningRate * cmd.epoch_decay
       print(c.green "New learning rate:"..config.learningRate)
