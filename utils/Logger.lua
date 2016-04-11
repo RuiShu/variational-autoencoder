@@ -7,8 +7,8 @@ require 'image'
 function Logger:__init(cmd)
    self.cmd = cmd
    if cmd.zSize == 2 and cmd.showVis then
-      self.nRow = 20
-      self.nCol = 20
+      self.nRow = 10
+      self.nCol = 14
       local dist = 2
       self.code = torch.Tensor(self.nRow*self.nCol,2)
       local x = torch.linspace(-dist,dist,self.nCol)
@@ -40,16 +40,16 @@ function Logger:receiveRecord(comm)
    self.bceStatus = 0.99*self.bceStatus + 0.01*comm.bceErr
    self.nElboStatus = 0.99*self.nElboStatus + 0.01*comm.nElbo
    self.optLogger:add{comm.nElbo/200, comm.kldErr/200, comm.bceErr/200}
-   if self.recordCount % 50 == 0 and self.cmd.zSize == 2 and self.cmd.showVis then
+   if self.recordCount % 5 == 0 and self.cmd.zSize == 2 and self.cmd.showVis then
       self:visualize(comm.decoder)
    end
 end
 
 function Logger:visualize(decoder)
    local recon = decoder:forward(self.code)
-   local stack = grid.stack(recon:view(self.nRow*self.nCol,28,28),
+   local stack = grid.stack(recon:view(self.nRow*self.nCol,28,20),
                              self.nRow, self.nCol)
-   self.win = image.display{image=stack, win=self.win}
+   self.win = image.display{image=stack, win=self.win, zoom=3}
 end
 
 function Logger:log()
