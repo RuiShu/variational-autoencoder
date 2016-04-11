@@ -8,6 +8,12 @@ or
 
 `./run_cpu`
 
+Fun manifold-learning images:
+
+![](visualization/images/frey.gif)
+
+![](visualization/images/mnist.gif)
+
 
 TODO:
 
