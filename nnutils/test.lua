@@ -4,7 +4,6 @@ require 'Sampler'
 require 'IndGmmSampler'
 require 'grader'
 -- require 'cunn'
-
 function kld_grad_check()
    kld = nn.KLDCriterion()
    skld = nn.SimpleKLDCriterion()
@@ -71,4 +70,5 @@ function ind_gmm_sampler_forward()
    print(output)
 end
 
-ind_gmm_sampler_forward()
+kld_grad_check()
+-- ind_gmm_sampler_forward()
