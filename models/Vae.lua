@@ -8,6 +8,8 @@ function Vae:__init(struct)
    self.encoder, self.decoder, self.model = self:build(struct)
    self.kld = nn.KLDCriterion()
    self.bce = nn.BCECriterion()
+   self.kldWeight = 1
+   self.bceWeight = 1
    self.bce.sizeAverage = false
    self.parameters, self.gradients = self.model:getParameters()
 end
@@ -40,21 +42,31 @@ function Vae:feval(x, minibatch)
    self.model:zeroGradParameters()
    -- forward
    local mulv, recon = unpack(self.model:forward(input))
-   local pmulv = mulv:clone():zero()
-   local kld_err = self.kld:forward(mulv, pmulv)
-   local bce_err = self.bce:forward(recon, input)
+   local kldErr = self.kld:forward(mulv)
+   local bceErr = self.bce:forward(recon, input)
    -- backward
    local dmulv = self.kld:backward(mulv, pmulv)
    local drecon = self.bce:backward(recon, input)
-   error_grads = {dmulv, drecon}
+   error_grads = {dmulv:mul(self.kldWeight), drecon:mul(self.bceWeight)}
    self.model:backward(input, error_grads)
    -- record
-   local nelbo = kld_err + bce_err
-   self:record(kld_err, bce_err, nelbo)
+   local nElbo = kldErr + bceErr
+   self:record(kldErr, bceErr, nElbo)
    return nelbo, self.gradients
 end
 
-function Vae:record(bceErr, kldErr, nElbo)
+function Vae:loss(minibatch)
+   local input = minibatch[1]
+   -- forward
+   local mulv, recon = unpack(self.model:forward(input))
+   local pmulv = mulv:clone():zero()
+   local kldErr = self.kld:forward(mulv, pmulv)
+   local bceErr = self.bce:forward(recon, input)
+   local nElbo = kldErr + bceErr
+   return kldErr, bceErr, nElbo
+end
+
+function Vae:record(kldErr, bceErr, nElbo)
    -- record
    self.bceErr = bceErr
    self.kldErr = kldErr
