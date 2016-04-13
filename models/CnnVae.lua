@@ -39,7 +39,7 @@ end
 function CnnVae:cuda()
    parent.cuda(self)
    require 'cudnn'
-   cudnn.benchmark = true
+   -- cudnn.benchmark = true
    cudnn.fastest = true
    cudnn.convert(self.encoder, cudnn)
    cudnn.convert(self.decoder, cudnn)
