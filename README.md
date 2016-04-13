@@ -18,6 +18,6 @@ Fun manifold-learning images:
 TODO:
 
 1. Add regularization criterion for Gmm prior
-2. Add Gaussian mixture with multivariate gaussian component KL divergence criterion
-3. Add component weight capability for Gmm
-4. Add Logger with visualization functionality for visualizing training
+2. <s>Add Gaussian mixture with multivariate gaussian component KL divergence criterion</s>
+3. <s>Add component weight capability for Gmm</s>
+4. <s>Add Logger with visualization functionality for visualizing training</s>

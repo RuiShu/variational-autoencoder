@@ -5,3 +5,4 @@ remove
 tmp
 tmp.*
 *bak
+.DS_Store
