@@ -21,7 +21,7 @@ function KLDCriterion:updateOutput(p, q)
    -- p is batchSize x 2 x nDims
    -- q is batchSize x (2*nMixtures) x nDims
    self:_viewInput(p, q)
-   self:_resizeBuffers(p, q)
+   self:_resizeBuffers()
    self.pMu = self.pMu:expandAs(self.qMu)
    self.pLv = self.pLv:expandAs(self.qLv)
    self.lvDiff:add(self.pLv, -1, self.qLv)
@@ -30,7 +30,7 @@ function KLDCriterion:updateOutput(p, q)
    self.qExp:mul(self.qLv, -1):exp()
    self.expElem:pow(self.muDiff, 2):cmul(self.qExp):add(self.expDiff):csub(1):csub(self.lvDiff):div(2):neg():exp()
    self.expSum:sum(self.expElem, self.len-1)
-   self.preOut:div(self.expSum, self.nMix):log():neg():sum()
+   self.preOut:div(self.expSum, self.nMix):log():neg()
    self.output = self.preOut:sum()
    return self.output
 end
@@ -49,7 +49,7 @@ function KLDCriterion:updateGradInput(p, q)
    return self.gradInput[1], self.gradInput[2]
 end
 
-function KLDCriterion:_resizeBuffers(p, q)
+function KLDCriterion:_resizeBuffers()
    -- cache from forward
    self.lvDiff:resizeAs(self.qLv)
    self.qExp:resizeAs(self.qLv)
@@ -63,6 +63,10 @@ function KLDCriterion:_resizeBuffers(p, q)
 end
 
 function KLDCriterion:_viewInput(p, q)
+   if not q then
+      self.q = self.q or p.new():resizeAs(p):zero()
+      q = self.q
+   end
    self.len = q:dim()
    self.nMix = q:size(self.len-1)/2
    self.pMu, self.pLv = unpack(p:split(1, self.len-1))
