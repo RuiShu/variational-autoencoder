@@ -56,11 +56,11 @@ function Logger:log()
    self.epoch = self.epoch or 0
    self.epoch = self.epoch + 1
    print(c.green 'Epoch: '..self.epoch)
-   print(c.red '==> '..'Elbo: '..-self.nElboStatus/200)
    print(c.red '==> '..'KLD: '..self.kldStatus/200)
    print(c.red '==> '..'BCE: '..self.bceStatus/200)
-   self.optLogger:style{'-','-','-'}
-   self.optLogger:plot()
+   print(c.red '==> '..'nElbo: '..self.nElboStatus/200)
+   -- self.optLogger:style{'-','-','-'}
+   -- self.optLogger:plot()
 end
 
 function Logger:cuda()
