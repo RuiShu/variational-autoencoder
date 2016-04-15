@@ -9,15 +9,15 @@ local cmd = lapp[[
 --gpu          (default 1)     | 1 if gpu, 0 if not gpu
 --model        (default Vae)   | which model to use
 --hSize        (default 400)   | size of hidden layer
---zSize        (default 10)     | size of latent layer
---mSize        (default 1000)  | number of mixtures
+--zSize        (default 10)    | size of latent layer
+--mSize        (default 10)    | number of mixtures
 --learningRate (default 0.001) | learning rate
 --maxEpoch     (default 400)   | number of total epochs
 --epochStep    (default 100)   | number of steps before each step decay
 --epochDecay   (default 0.1)   | epoch step decay rate
---validStep    (default 1000)    | epoch step for validation scoring
+--validStep    (default 1000)  | epoch step for validation scoring
 --saveStep     (default 50)    | number of steps before each save
---showVis      (default false)  | show training visualization
+--showVis                      | show training visualization
 ]]
 local struct = {x = 784, h = cmd.hSize, z = cmd.zSize, m = cmd.mSize}
 require('models.'..cmd.model)
