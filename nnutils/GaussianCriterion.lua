@@ -2,27 +2,47 @@ require 'nn'
 
 local GaussianCriterion, parent = torch.class('nn.GaussianCriterion', 'nn.Criterion')
 
-function GaussianCriterion:updateOutput(input, target)
-    -- - log(sigma) - 0.5 *(2pi)) - 0.5 * (x - mu)^2/sigma^2
-    -- input[1] = mu
-    -- input[2] = log(sigma^2)
-
-    local Gelement = torch.mul(input[2],0.5):add(0.5 * math.log(2 * math.pi))
-    Gelement:add(torch.add(target,-1,input[1]):pow(2):cdiv(torch.exp(input[2])):mul(0.5))
-
-    self.output = torch.sum(Gelement)
-
-    return self.output
+function GaussianCriterion:__init()
+   parent.__init(self)
+   self.diff = torch.Tensor()
+   self.pExp = torch.Tensor()
+   self.diffExp = torch.Tensor()
+   self.expElem = torch.Tensor()
 end
 
-function GaussianCriterion:updateGradInput(input, target)
-    self.gradInput = {}
+function GaussianCriterion:updateOutput(p, x)
+   -- negative log likelihood using p as gaussian distribution hypothesis
+   -- and x as observation
+   self:_viewInput(p, x)
+   self:_resizeBuffers()
+   self.diff:csub(self.x, self.pMu)
+   self.pExp:mul(self.pLv, -1):exp()
+   self.diffExp:pow(self.diff, 2):cmul(self.pExp)
+   self.expElem:add(self.diffExp, self.pLv):add(math.log(2*math.pi))
+   self.output = self.expElem:sum()*0.5
+   return self.output 
+end
 
-    -- (x - mu) / sigma^2  --> (1 / sigma^2 = exp(-log(sigma^2)) )
-    self.gradInput[1] = torch.exp(-input[2]):cmul(torch.add(target,-1,input[1])):mul(-1)
+function GaussianCriterion:updateGradInput(p, x)
+   self.dpMu:cmul(self.diff, self.pExp):neg()
+   self.dpLv:csub(self.diffExp, 1):div(2):neg()
+   return self.gradInput
+end
 
-    -- - 0.5 + 0.5 * (x - mu)^2 / sigma^2
-    self.gradInput[2] = torch.exp(-input[2]):cmul(torch.add(target,-1,input[1]):pow(2)):mul(-1):add(0.5)
+function GaussianCriterion:_resizeBuffers()
+   self.diff:resizeAs(self.pMu)
+   self.pExp:resizeAs(self.pMu)
+   self.diffExp:resizeAs(self.pMu)
+   self.expElem:resizeAs(self.pMu)
+end
 
-    return self.gradInput
+function GaussianCriterion:_viewInput(p, x)
+   -- nBatch x nChannel*2 x nDim
+   self.len = p:dim()
+   self.nChannel = p:size(self.len-1)/2
+   self.pMu, self.pLv = unpack(p:split(self.nChannel, self.len-1))
+   self.x = x:viewAs(self.pMu)
+   -- grad view
+   self.gradInput:resizeAs(p)
+   self.dpMu, self.dpLv = unpack(self.gradInput:split(self.nChannel, self.len-1))
 end

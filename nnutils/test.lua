@@ -1,4 +1,5 @@
 require 'KLDCriterion'
+require 'GaussianCriterion'
 require 'GmmKLDCriterion'
 require 'SimpleKLDCriterion'
 require 'Sampler'
@@ -129,8 +130,37 @@ function gmm_sampler_forward()
    print(out)
 end
 
+function gaussian_forward()
+   gauss = nn.GaussianCriterion()
+   input = torch.randn(2, 10)
+   mu, lv = unpack(input:split(1, 2))
+   x = torch.randn(10):zero()
+   print(gauss:forward(input, x))
+   -- gauss:backward(input, x)
+end
+
+function gaussian_grad_check()
+   gauss = nn.GaussianCriterion()
+
+   print("single channel")
+   input = torch.randn(2,1)
+   target = torch.randn(1,1)
+   grader.checkCriterionGradInput(gauss, input, target)
+
+   print("multi channel")
+   input = torch.randn(4,5)
+   target = torch.randn(2,5)
+   grader.checkCriterionGradInput(gauss, input, target)
+
+   print("batch")
+   input = torch.randn(10, 4,5)
+   target = torch.randn(10, 2,5)
+   grader.checkCriterionGradInput(gauss, input, target)
+end
+
 -- kld_grad_check()
 -- ind_gmm_sampler_forward()
 -- gmm_kld_check()
 -- gmm_kld_grad_check()
-gmm_sampler_forward()
+-- gmm_sampler_forward()
+gaussian_grad_check()
