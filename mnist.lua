@@ -34,7 +34,6 @@ end
 
 local config = {learningRate = cmd.learningRate}
 local state = {}
-
 local epoch = 0
 while epoch < cmd.maxEpoch do
    -- training
