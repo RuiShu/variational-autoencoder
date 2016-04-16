@@ -15,6 +15,7 @@ function KLDCriterion:__init()
    self.preOut = torch.Tensor()
    self.dpMuBuf = torch.Tensor()
    self.dpLvBuf = torch.Tensor()
+   self.shift = torch.Tensor()
 end 
 
 function KLDCriterion:updateOutput(p, q)
@@ -28,9 +29,14 @@ function KLDCriterion:updateOutput(p, q)
    self.muDiff:add(self.pMu, -1, self.qMu)
    self.expDiff:exp(self.lvDiff)
    self.qExp:mul(self.qLv, -1):exp()
-   self.expElem:pow(self.muDiff, 2):cmul(self.qExp):add(self.expDiff):csub(1):csub(self.lvDiff):div(2):neg():exp()
+
+   -- prevent overflow/underflow
+   self.expElem:pow(self.muDiff, 2):cmul(self.qExp):add(self.expDiff):csub(1):csub(self.lvDiff):div(2)
+   self.shift:min(self.expElem, self.len-1)
+   self.shiftEx = self.shift:expandAs(self.expElem)
+   self.expElem:neg():add(self.shiftEx):exp()
    self.expSum:sum(self.expElem, self.len-1)
-   self.preOut:div(self.expSum, self.nMix):log():neg()
+   self.preOut:div(self.expSum, self.nMix):log():neg():add(self.shift)
    self.output = self.preOut:sum()
    return self.output
 end
@@ -56,6 +62,7 @@ function KLDCriterion:_resizeBuffers()
    self.muDiff:resizeAs(self.qLv)
    self.expDiff:resizeAs(self.qLv)
    self.expElem:resizeAs(self.qLv)
+   self.shift:resizeAs(self.pLv)
    self.expSum:resizeAs(self.pLv)
    self.preOut:resizeAs(self.pLv)
    self.dpMuBuf:resizeAs(self.qLv)
