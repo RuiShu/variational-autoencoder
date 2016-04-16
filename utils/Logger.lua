@@ -47,8 +47,12 @@ end
 
 function Logger:visualize(decoder)
    local recon = decoder:forward(self.code)
-   local stack = grid.stack(recon:view(self.nRow*self.nCol,28,20),
-                             self.nRow, self.nCol)
+   if recon:dim() == 3 then
+      local recon = grid.split(recon, 2)
+   end
+   -- end of hack
+   recon = recon:view(self.nRow*self.nCol, self.cmd.height, self.cmd.width)
+   local stack = grid.stack(recon, self.nRow, self.nCol)
    self.win = image.display{image=stack, win=self.win, zoom=3}
 end
 
