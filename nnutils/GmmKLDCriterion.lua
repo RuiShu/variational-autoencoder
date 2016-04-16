@@ -23,7 +23,7 @@ function GmmKLDCriterion:updateOutput(p, q)
    -- p is batchSize x 2 x nDims
    -- q is batchSize x (2*nMixtures) x nDims
    self:_viewInput(p, q)
-   self:_resizeBuffers(p, q)
+   self:_resizeBuffers()
    self.pMu = self.pMu:expandAs(self.qMu)
    self.pLv = self.pLv:expandAs(self.qLv)
    self.lvDiff:add(self.pLv, -1, self.qLv)
@@ -58,7 +58,7 @@ function GmmKLDCriterion:updateGradInput(p, q)
    return self.gradInput[1], self.gradInput[2]
 end
 
-function GmmKLDCriterion:_resizeBuffers(p, q)
+function GmmKLDCriterion:_resizeBuffers()
    self.lvDiff:resizeAs(self.qLv)
    self.qExp:resizeAs(self.qLv)
    self.muDiff:resizeAs(self.qLv)
@@ -76,6 +76,10 @@ function GmmKLDCriterion:_resizeBuffers(p, q)
 end
 
 function GmmKLDCriterion:_viewInput(p, q)
+   if not q then
+      self.q = self.q or p.new():resizeAs(p):zero()
+      q = self.q
+   end
    self.len = q:dim()
    self.nMix = q:size(self.len-1)/2
    self.pMu, self.pLv = unpack(p:split(1, self.len-1))
