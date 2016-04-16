@@ -7,10 +7,10 @@ function Vae:__init(struct)
    -- build model
    self.encoder, self.decoder, self.model = self:build(struct)
    self.kld = nn.KLDCriterion()
-   self.bce = nn.BCECriterion()
+   self.rec = nn.BCECriterion()
    self.kldWeight = 1
-   self.bceWeight = 1
-   self.bce.sizeAverage = false
+   self.recWeight = 1
+   self.rec.sizeAverage = false
    self.parameters, self.gradients = self.model:getParameters()
 end
 
@@ -43,15 +43,15 @@ function Vae:feval(x, minibatch)
    -- forward
    local mulv, recon = unpack(self.model:forward(input))
    local kldErr = self.kld:forward(mulv)
-   local bceErr = self.bce:forward(recon, input)
+   local recErr = self.rec:forward(recon, input)
    -- backward
    local dmulv = self.kld:backward(mulv, pmulv)
-   local drecon = self.bce:backward(recon, input)
-   error_grads = {dmulv:mul(self.kldWeight), drecon:mul(self.bceWeight)}
-   self.model:backward(input, error_grads)
+   local drecon = self.rec:backward(recon, input)
+   errorGrads = {dmulv:mul(self.kldWeight), drecon:mul(self.recWeight)}
+   self.model:backward(input, errorGrads)
    -- record
-   local nElbo = kldErr + bceErr
-   self:record(kldErr, bceErr, nElbo)
+   local nElbo = kldErr + recErr
+   self:record(kldErr, recErr, nElbo)
    return nelbo, self.gradients
 end
 
@@ -61,21 +61,21 @@ function Vae:loss(minibatch)
    local mulv, recon = unpack(self.model:forward(input))
    local pmulv = mulv:clone():zero()
    local kldErr = self.kld:forward(mulv, pmulv)
-   local bceErr = self.bce:forward(recon, input)
-   local nElbo = kldErr + bceErr
-   return kldErr, bceErr, nElbo
+   local recErr = self.rec:forward(recon, input)
+   local nElbo = kldErr + recErr
+   return kldErr, recErr, nElbo
 end
 
-function Vae:record(kldErr, bceErr, nElbo)
+function Vae:record(kldErr, recErr, nElbo)
    -- record
-   self.bceErr = bceErr
+   self.recErr = recErr
    self.kldErr = kldErr
    self.nElbo = nElbo
 end
 
 function Vae:sendRecord()
    local comm = {}
-   comm.bceErr = self.bceErr
+   comm.recErr = self.recErr
    comm.kldErr = self.kldErr
    comm.nElbo = self.nElbo
    comm.decoder = self.decoder
@@ -85,7 +85,7 @@ end
 function Vae:cuda()
    require 'cunn'
    self.model:cuda()
-   self.bce:cuda()
+   self.rec:cuda()
    self.kld:cuda()
    self.parameters, self.gradients = self.model:getParameters()
    return self

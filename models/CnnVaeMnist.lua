@@ -4,7 +4,7 @@ local c = require 'trepl.colorize'
 require 'nngraph'
 require 'nnutils.init'
 
-function CnnVae:build(struct)
+function CnnVaeMnist:build(struct)
    local encoder = nn.Sequential()
    -- conv
    encoder:add(nn.View(1,28,28))
